@@ -1,0 +1,5 @@
+gevent==25.8.2
+greenlet==3.2.4
+pyeventbus3==0.10
+zope.event==6.0
+zope.interface==8.0
