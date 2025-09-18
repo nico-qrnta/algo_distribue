@@ -25,19 +25,20 @@ class Com():
         self.clock += 1
         self.clockMutex.release()
 
-    def incClockOnReceive(self, stamp):
-        self.clockMutex.acquire()
-        self.clock = max(stamp, self.clock) + 1
-        self.clockMutex.release()
+    def incClockOnReceive(self, stamp, system):
+        if not system:
+            self.clockMutex.acquire()
+            self.clock = max(stamp, self.clock) + 1
+            self.clockMutex.release()
 
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessage)
     def onBroadcast(self, event):
-        self.incClockOnReceive(event.stamp)
+        self.incClockOnReceive(event.stamp, event.system)
         self.mailbox.put(event)
 
     @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessage)
     def onPrivateMessage(self, event):
-        self.incClockOnReceive(event.stamp)
+        self.incClockOnReceive(event.stamp, event.system)
         self.mailbox.put(event)
 
     def broadcast(self, message):
