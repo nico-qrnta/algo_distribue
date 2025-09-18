@@ -35,7 +35,7 @@ class Com():
         self.incClockOnReceive(event.stamp)
         self.mailbox.put(event)
 
-    @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessage)
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessage)
     def onPrivateMessage(self, event):
         self.incClockOnReceive(event.stamp)
         self.mailbox.put(event)
