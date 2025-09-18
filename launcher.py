@@ -1,5 +1,5 @@
 from time import sleep
-from Process import Process
+from process import Process
 
 def launch(nbProcess, runningTime=5):
     processes = []
