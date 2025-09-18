@@ -52,8 +52,35 @@ class Com():
             self.clock = max(stamp, self.clock) + 1
             self.clockMutex.release()
 
+        
+    # -------- Section critique --------
 
-    # -------- Communications asynchrones --------
+
+    """
+    Bloque le processus jusqu'à obtention du jeton de section critique
+    """
+    def requestSC():
+        NotImplemented
+
+
+    """
+    Libère le jeton de section critique
+    """
+    def releaseSC():
+        NotImplemented
+
+
+    # -------- Synchronisation --------
+
+
+    """
+    Bloque le processus jusqu'à ce que tous les autres processus aient appelé cette méthode
+    """
+    def synchronize():
+        NotImplemented
+
+
+    # -------- Communication asynchrone --------
 
 
     """
@@ -94,3 +121,30 @@ class Com():
         self.incClock()
         message = PrivateMessage(to, self.clock, message)
         PyBus.Instance().post(message)
+
+
+    # -------- Communication synchrone --------
+
+
+    """
+    Si le processus est l'émetteur, envoie un message en broadcast de façon asynchrone, sinon reçoit le message
+    Entrée => le message à envoyer ou recevoir, l'expéditeur
+    """
+    def broadcastSync(self, message, sender):
+        NotImplemented
+
+    
+    """
+    Envoie un message privé à un destinataire de façon synchrone et bloque jusqu'à la réception du message
+    Entrée => le message à envoyer, le destinataire
+    """
+    def sendToSync(self, message, to):
+        NotImplemented
+
+
+    """
+    Récupère un message privé envoyé de façon synchrone et bloque jusqu'à l'envoi du message
+    Entrée => l'event contenant le message intercepté
+    """
+    def recevFromSync(self, message, sender):
+        NotImplemented
