@@ -10,6 +10,15 @@ class Com():
         self.clock = 0
         self.clockMutex = Semaphore(1)
         self.mailbox = Mailbox()
+        self.processList = []
+        self.processMutex = Semaphore(1)
+
+    def getMyId(self):
+        self.processMutex.acquire()
+        newId = len(self.processList)
+        self.processList.append(newId)
+        self.processMutex.release()
+        return newId
 
     def incClock(self):
         self.clockMutex.acquire()
