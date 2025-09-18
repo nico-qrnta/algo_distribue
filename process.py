@@ -9,7 +9,7 @@ class Process(Thread):
 
         self.com = Com()
         
-        self.nbProcess = self.com.getNbProcess()
+        # self.nbProcess = self.com.getNbProcess()
 
         self.myId = self.com.getMyId()
         self.setName(name)
@@ -40,7 +40,7 @@ class Process(Thread):
                     print("Catched !")
                     self.com.broadcast("J'ai gagné !!!")
                 else:
-                    msg = self.com.mailbox.getMsg();
+                    msg = self.com.mailbox.getMsg()
                     print(str(msg.getSender())+" à eu le jeton en premier")
                 self.com.releaseSC()
 
@@ -72,7 +72,7 @@ class Process(Thread):
                     print("Catched !")
                     self.com.broadcast("J'ai gagné !!!")
                 else:
-                    msg = self.com.mailbox.getMsg();
+                    msg = self.com.mailbox.getMsg()
                     print(str(msg.getSender())+" à eu le jeton en premier")
                 self.com.releaseSC()
                 
