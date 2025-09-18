@@ -81,7 +81,7 @@ class Com():
     Entrée => le message à envoyer
     """
     def broadcast(self, message):
-        self.inc_clock()
+        self.incClock()
         message = BroadcastMessage(self.clock, message)
         PyBus.Instance().post(message)
 
@@ -91,6 +91,6 @@ class Com():
     Entrée => le destinataire, le message à envoyer
     """
     def sendTo(self, to, message):
-        self.inc_clock()
+        self.incClock()
         message = PrivateMessage(to, self.clock, message)
         PyBus.Instance().post(message)
