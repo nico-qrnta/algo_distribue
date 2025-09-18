@@ -117,7 +117,7 @@ class Com():
     Envoie un message privé à un destinataire de façon asynchrone
     Entrée => le destinataire, le message à envoyer
     """
-    def sendTo(self, to, message):
+    def sendTo(self, message, to):
         self.incClock()
         message = PrivateMessage(to, self.clock, message)
         PyBus.Instance().post(message)
