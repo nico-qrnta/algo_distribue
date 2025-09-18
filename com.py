@@ -1,4 +1,4 @@
-from threading import Semaphore
+from threading import Lock
 from pyeventbus3.pyeventbus3 import *
 
 from mailbox_queue import Mailbox
@@ -13,7 +13,7 @@ class Com():
     def __init__(self):
         # Horloge Lamport
         self.clock = 0
-        self.clockMutex = Semaphore(1)
+        self.clockMutex = Lock()
 
         # B.a.L
         self.mailbox = Mailbox()
