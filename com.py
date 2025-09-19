@@ -90,7 +90,7 @@ class Com():
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessage)
     def onBroadcast(self, event):
         self.incClockOnReceive(event.stamp, event.system)
-        self.mailbox.put(event)
+        self.mailbox.add(event)
 
 
     """
@@ -100,7 +100,7 @@ class Com():
     @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessage)
     def onPrivateMessage(self, event):
         self.incClockOnReceive(event.stamp, event.system)
-        self.mailbox.put(event)
+        self.mailbox.add(event)
 
 
     """
