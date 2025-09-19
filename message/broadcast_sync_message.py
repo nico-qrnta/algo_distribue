@@ -6,7 +6,6 @@ class BroadcastMessageSync(Message):
         - l'estampille
         - le contenu
         - l'émetteur
-        - l'id du message
         - un booléen indiquant la nature système du message.
 
     sender et msg_id sont requis uniquement pour la communication synchrone

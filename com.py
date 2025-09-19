@@ -44,6 +44,7 @@ class Com():
 
     # -------- Numérotation automatique --------
 
+
     """
     Crée un id numéroté automatiquement pour le processus et le retourne
     Sortie => id du processus
@@ -53,6 +54,7 @@ class Com():
 
     def getNbProcess(self):
         return 3
+
 
     # -------- Horloge Lamport --------
 
@@ -103,6 +105,9 @@ class Com():
         self.status = Status.NULL
         self.finished_sc_semaphore.release()
 
+
+    """
+    """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=TokenSC)
     def onToken(self, event):
         self.logger.debug(f"P{self.myId} -> Token reçu pour {event.to}")
@@ -117,13 +122,19 @@ class Com():
         self.logger.debug(f"P{self.myId} -> Je passe le token")
         self.sendTokenTo((self.myId + 1) % self.getNbProcess())
 
+
+    """
+    """
     def sendTokenTo(self, to):
         self.logger.debug(f"P{self.myId} -> J'envoie le token à {to}")
         token = TokenSC(to)
         time.sleep(0.5)
         PyBus.Instance().post(token)
 
+
     # -------- Synchronisation --------
+
+
     """
     Bloque le processus jusqu'à ce que tous les autres processus aient appelé cette méthode
     """
@@ -136,6 +147,8 @@ class Com():
         self.logger.info(f"P{self.myId} -> Fin synchronize")
 
 
+    """
+    """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=SynchronizeEvent)
     def onSynchronizeEvent(self, event):
         self.synchronizedProcess.append(event.source)
@@ -145,6 +158,8 @@ class Com():
 
 
     # -------- Communication asynchrone --------
+
+
     """
     Récupère un message envoyé en broadcast de façon asynchrone
     Entrée => l'event contenant le message intercepté
@@ -190,7 +205,10 @@ class Com():
         self.logger.debug(f"P{self.myId} -> Envoi privé à {to}: {message}")
         PyBus.Instance().post(message)
 
+
     # -------- Communication synchrone --------
+
+
     """
     Si le processus est l'émetteur, envoie un message en broadcast de façon asynchrone, sinon reçoit le message
     Entrée => le message à envoyer ou recevoir, l'expéditeur
@@ -206,6 +224,9 @@ class Com():
             self.logger.info(f"P{self.myId} -> Attente broadcast synchrone")
             self.broadcast_sync.acquire()
 
+
+    """
+    """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessageSync)
     def onBroadcastSync(self, event):
         if event.sender == self.myId:
@@ -215,12 +236,17 @@ class Com():
         self.sendAckTo(event.sender)
         self.logger.info(f"P{self.myId} -> A reçu broadcast synchrone : {event.payload}")
 
+
+    """
+    """
     def sendAckTo(self, dest):
         ack = AckMessage(self.myId, dest)
         PyBus.Instance().post(ack)
         self.broadcast_sync.release()
         
     
+    """
+    """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=AckMessage)
     def onAck(self, event):
         if event.dest != self.myId:
@@ -232,11 +258,11 @@ class Com():
         if len(self.acked_broadcast_sync) == self.getNbProcess() - 1:
             self.ack_broadcast_sync.release()
 
+
     """
     Envoie un message privé à un destinataire de façon synchrone et bloque jusqu'à la réception du message
     Entrée => le message à envoyer, le destinataire
-    """
-    
+    """    
     def sendToSync(self, message, to):
         NotImplemented
 
@@ -249,14 +275,8 @@ class Com():
         NotImplemented
 
 
+# -------- LOGGER-----------
 
-
-
-
-
-
-
-# --- LOGGER ---
 
 def setup_logger(level=logging.INFO):
     logger = logging.getLogger("ComLogger")
@@ -268,7 +288,7 @@ def setup_logger(level=logging.INFO):
     formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
     ch.setFormatter(formatter)
 
-    if not logger.handlers:  # éviter duplication
+    if not logger.handlers:
         logger.addHandler(ch)
 
     return logger
