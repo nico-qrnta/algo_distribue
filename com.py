@@ -8,11 +8,12 @@ from status import Status
 import threading
 import logging
 import random
+import time
 
 class Com():
     # -------- Initialisation --------
 
-    def __init__(self, myId, log_level=logging.INFO):
+    def __init__(self, log_level=logging.INFO):
         """
         Instancie les différentes variables de Com
         """
@@ -45,15 +46,16 @@ class Com():
         PyBus.Instance().register(self, self)
 
         #numérotation automatique
-        # self.ids = []
-        self.myId = myId
-        # self.myUniqueId = None
-        # self.initializeId()
+        self.ids = []
+        self.myId = None
+        self.myUniqueId = None
 
+
+    def init(self):
+        time.sleep(4)
+        self.initializeId()
 
     # -------- Numérotation automatique --------
-
-
     def getMyId(self):
         """
         Crée un id numéroté automatiquement pour le processus et le retourne
@@ -63,8 +65,12 @@ class Com():
 
     def initializeId(self):
         self.myUniqueId = random.randint(0, 10**18)
+        self.ids.append(self.myUniqueId)
+        
         message = BroadcastId(self.myUniqueId)
         PyBus.Instance().post(message)
+
+        time.sleep(1)
         self.logger.info(f"P{self.myId} -> Emission de mon ID : {self.myUniqueId}")
 
     
@@ -72,6 +78,12 @@ class Com():
     def onBroadcastId(self, event):
         """
         """
+        if self.myUniqueId == event.id:
+            return
+
+        if event.id in self.ids:
+            return
+
         self.ids.append(event.id)
         self.ids.sort()
 
@@ -81,21 +93,24 @@ class Com():
             PyBus.Instance().post(message)
 
     
-    @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastId)
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessageId)
     def OnPrivateMessageId(self, event):
         """
         """
+        if self.myUniqueId != event.dest:
+            return
+
         self.ids.append(event.id)
         self.ids.sort()
+        self.logger.debug(f"P{self.myId} -> Reception de ID : {event.id}")
 
         if self.myId != None :
-            self.myId = self.ids.index(self.myId)
+            self.myId = self.ids.index(self.myUniqueId)
 
     def getNbProcess(self):
         """
         """
-        # return len(self.ids)
-        return 3
+        return len(self.ids)
     
     # -------- Horloge Lamport --------
 
@@ -220,7 +235,7 @@ class Com():
         if event.to != self.myId:
            return
 
-        self.logger.debug(f"P{self.myId} -> Message privé reçu de {event.to}: {event.payload}")
+        self.logger.debug(f"P{self.myId} -> Message privé reçu de {event.sender}: {event.payload}")
         self.incClockOnReceive(event.stamp)
         self.mailbox.add(event)
 
@@ -232,7 +247,7 @@ class Com():
         """
         self.incClock()
         message = BroadcastMessage(self.clock, message)
-        self.logger.debug(f"P{self.myId} -> Envoi broadcast: {message}")
+        self.logger.debug(f"P{self.myId} -> Envoi broadcast: {message.payload}")
         PyBus.Instance().post(message)
 
 
@@ -243,7 +258,7 @@ class Com():
         """
         self.incClock()
         message = PrivateMessage(to, self.clock, message)
-        self.logger.debug(f"P{self.myId} -> Envoi privé à {to}: {message}")
+        self.logger.debug(f"P{self.myId} -> Envoi privé à {to}: {message.payload}")
         PyBus.Instance().post(message)
 
 
