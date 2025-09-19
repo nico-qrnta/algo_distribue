@@ -9,3 +9,6 @@ class Message():
         self.stamp = stamp
         self.payload = payload
         self.sender = sender
+
+    def getSender(self):
+        return self.sender

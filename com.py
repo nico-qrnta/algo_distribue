@@ -2,11 +2,12 @@ from threading import Lock
 from pyeventbus3.pyeventbus3 import *
 
 from mailbox_queue import Mailbox
-from message import AckMessage, PMAckMessage, PrivateMessageSync, BroadcastMessage, PrivateMessage, TokenSC, SynchronizeEvent, BroadcastMessageSync
+from message import AckMessage, PrivateMessageId, BroadcastId, PMAckMessage, PrivateMessageSync, BroadcastMessage, PrivateMessage, TokenSC, SynchronizeEvent, BroadcastMessageSync
 from status import Status
 
 import threading
 import logging
+import random
 
 class Com():
     # -------- Initialisation --------
@@ -40,10 +41,14 @@ class Com():
         self.pm_sync = threading.Semaphore(0)
         self.ack_pm_sync = threading.Semaphore(0)
 
-        self.myId = myId
-
         self.logger = setup_logger(log_level)
         PyBus.Instance().register(self, self)
+
+        #numérotation automatique
+        # self.ids = []
+        self.myId = myId
+        # self.myUniqueId = None
+        # self.initializeId()
 
 
     # -------- Numérotation automatique --------
@@ -54,16 +59,45 @@ class Com():
         Crée un id numéroté automatiquement pour le processus et le retourne
         Sortie => id du processus
         """
-        NotImplemented
+        return self.myId
+
+    def initializeId(self):
+        self.myUniqueId = random.randint(0, 10**18)
+        message = BroadcastId(self.myUniqueId)
+        PyBus.Instance().post(message)
+        self.logger.info(f"P{self.myId} -> Emission de mon ID : {self.myUniqueId}")
+
+    
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastId)
+    def onBroadcastId(self, event):
+        """
+        """
+        self.ids.append(event.id)
+        self.ids.sort()
+
+        if self.myUniqueId != None :
+            self.myId = self.ids.index(self.myUniqueId)
+            message = PrivateMessageId(self.myUniqueId, event.id)
+            PyBus.Instance().post(message)
+
+    
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastId)
+    def OnPrivateMessageId(self, event):
+        """
+        """
+        self.ids.append(event.id)
+        self.ids.sort()
+
+        if self.myId != None :
+            self.myId = self.ids.index(self.myId)
 
     def getNbProcess(self):
         """
         """
+        # return len(self.ids)
         return 3
-
-
+    
     # -------- Horloge Lamport --------
-
 
     def incClock(self):
         """
@@ -160,6 +194,7 @@ class Com():
         self.synchronizedProcess.append(event.source)
 
         if len(self.synchronizedProcess) == self.getNbProcess():
+            self.synchronizedProcess = []
             self.synchro_semaphore.release()
 
 
@@ -262,6 +297,7 @@ class Com():
         self.acked_broadcast_sync.append(event.sender)
 
         if len(self.acked_broadcast_sync) == self.getNbProcess() - 1:
+            self.acked_broadcast_sync = []
             self.ack_broadcast_sync.release()
 
 

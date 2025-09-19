@@ -6,3 +6,5 @@ from .synchronize_event import SynchronizeEvent
 from .broadcast_sync_message import BroadcastMessageSync
 from .private_sync_message import PrivateMessageSync
 from .pm_ack_message import PMAckMessage
+from .broadcast_id import BroadcastId
+from .private_message_id import PrivateMessageId
