@@ -2,7 +2,7 @@ from threading import Lock
 from pyeventbus3.pyeventbus3 import *
 
 from mailbox_queue import Mailbox
-from message import BroadcastMessage, PrivateMessage, TokenSC
+from message import BroadcastMessage, PrivateMessage, TokenSC, SynchronizeEvent
 from status import Status
 
 import threading
@@ -25,15 +25,19 @@ class Com():
         # Section critique
         self.status = Status.NULL
         self.sc_semaphore = threading.Semaphore(0)
-        self.myId = myId
+        self.finished_sc_semaphore = threading.Semaphore(0)
 
+        #synchronize
+        self.synchronizedProcess = []
+        self.synchro_semaphore = threading.Semaphore(0)
+
+        self.myId = myId
 
         self.logger = setup_logger(log_level)
         PyBus.Instance().register(self, self)
 
 
     # -------- Numérotation automatique --------
-
 
     """
     Crée un id numéroté automatiquement pour le processus et le retourne
@@ -42,6 +46,8 @@ class Com():
     def getMyId(self):
         NotImplemented
 
+    def getNbProcess(self):
+        return 3
 
     # -------- Horloge Lamport --------
 
@@ -88,22 +94,10 @@ class Com():
         if self.status != Status.SECTION_CRITIQUE:
             return
 
-        self.logger.info(f"P{self.myId} -> Sortie SC, passe le jeton")
-        self.sendTokenTo((self.myId + 1) % 3);
+        self.logger.info(f"P{self.myId} -> Sortie SC")
         self.status = Status.NULL
+        self.finished_sc_semaphore.release()
 
-
-    # -------- Synchronisation --------
-
-
-    """
-    Bloque le processus jusqu'à ce que tous les autres processus aient appelé cette méthode
-    """
-    def synchronize():
-        NotImplemented
-
-
-    # -------- Communication asynchrone --------
     @subscribe(threadMode = Mode.PARALLEL, onEvent=TokenSC)
     def onToken(self, event):
         self.logger.debug(f"P{self.myId} -> Token reçu pour {event.to}")
@@ -113,11 +107,39 @@ class Com():
         if self.status == Status.REQUEST:
             self.logger.info(f"P{self.myId} -> Je garde le token pour entrer en SC")
             self.sc_semaphore.release()
-        else:
-            self.logger.debug(f"P{self.myId} -> Pas besoin du token, je le passe")
-            self.sendTokenTo((self.myId + 1) % 3)
+            self.finished_sc_semaphore.acquire()
+        
+        self.logger.debug(f"P{self.myId} -> Je passe le token")
+        self.sendTokenTo((self.myId + 1) % self.getNbProcess())
+
+    def sendTokenTo(self, to):
+        self.logger.debug(f"P{self.myId} -> J'envoie le token à {to}")
+        token = TokenSC(to)
+        time.sleep(0.5)
+        PyBus.Instance().post(token)
+
+    # -------- Synchronisation --------
+    """
+    Bloque le processus jusqu'à ce que tous les autres processus aient appelé cette méthode
+    """
+    def synchronize(self):
+        self.logger.info(f"P{self.myId} -> Attente synchronize")
+        synchronizeEvent = SynchronizeEvent(self.myId)
+        PyBus.Instance().post(synchronizeEvent)
+        
+        self.synchro_semaphore.acquire()
+        self.logger.info(f"P{self.myId} -> Fin synchronize")
 
 
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=SynchronizeEvent)
+    def onSynchronizeEvent(self, event):
+        self.synchronizedProcess.append(event.source)
+
+        if len(self.synchronizedProcess) == self.getNbProcess():
+            self.synchro_semaphore.release()
+
+
+    # -------- Communication asynchrone --------
     """
     Récupère un message envoyé en broadcast de façon asynchrone
     Entrée => l'event contenant le message intercepté
@@ -134,6 +156,9 @@ class Com():
     """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessage)
     def onPrivateMessage(self, event):
+        if event.to != self.myId:
+           return
+
         self.logger.debug(f"P{self.myId} -> Message privé reçu de {event.to}: {event.message}")
         self.incClockOnReceive(event.stamp, event.system)
         self.mailbox.add(event)
@@ -160,16 +185,7 @@ class Com():
         self.logger.debug(f"P{self.myId} -> Envoi privé à {to}: {message}")
         PyBus.Instance().post(message)
 
-
-    def sendTokenTo(self, to):
-        self.logger.debug(f"P{self.myId} -> J'envoie le token à {to}")
-        token = TokenSC(to)
-        time.sleep(0.5)
-        PyBus.Instance().post(token)
-
-
     # -------- Communication synchrone --------
-
 
     """
     Si le processus est l'émetteur, envoie un message en broadcast de façon asynchrone, sinon reçoit le message
@@ -183,6 +199,7 @@ class Com():
     Envoie un message privé à un destinataire de façon synchrone et bloque jusqu'à la réception du message
     Entrée => le message à envoyer, le destinataire
     """
+    
     def sendToSync(self, message, to):
         NotImplemented
 
