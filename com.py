@@ -2,7 +2,7 @@ from threading import Lock
 from pyeventbus3.pyeventbus3 import *
 
 from mailbox_queue import Mailbox
-from message import AckMessage, BroadcastMessage, PrivateMessage, TokenSC, SynchronizeEvent, BroadcastMessageSync
+from message import AckMessage, PMAckMessage, PrivateMessageSync, BroadcastMessage, PrivateMessage, TokenSC, SynchronizeEvent, BroadcastMessageSync
 from status import Status
 
 import threading
@@ -35,6 +35,10 @@ class Com():
         self.broadcast_sync = threading.Semaphore(0)
         self.acked_broadcast_sync = []
         self.ack_broadcast_sync = threading.Semaphore(0)
+
+        #private message synchrone
+        self.pm_sync = threading.Semaphore(0)
+        self.ack_pm_sync = threading.Semaphore(0)
 
         self.myId = myId
 
@@ -71,14 +75,13 @@ class Com():
 
     """
     Met à jour l'horloge Lamport de façon protégée via un mutex en se basant sur un message donné
-    Entrée => l'estampille du message, un booléen indiquant la nature système du message
+    Entrée => l'estampille du message
     """
-    def incClockOnReceive(self, stamp, system):
-        if not system:
-            self.clockMutex.acquire()
-            self.clock = max(stamp, self.clock) + 1
-            self.logger.debug(f"P{self.myId} -> Horloge mise à jour sur reception: {self.clock}")
-            self.clockMutex.release()
+    def incClockOnReceive(self, stamp):
+        self.clockMutex.acquire()
+        self.clock = max(stamp, self.clock) + 1
+        self.logger.debug(f"P{self.myId} -> Horloge mise à jour sur reception: {self.clock}")
+        self.clockMutex.release()
 
         
     # -------- Section critique --------
@@ -166,7 +169,7 @@ class Com():
     """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessage)
     def onBroadcast(self, event):
-        self.incClockOnReceive(event.stamp, event.system)
+        self.incClockOnReceive(event.stamp)
         self.mailbox.add(event)
 
 
@@ -179,8 +182,8 @@ class Com():
         if event.to != self.myId:
            return
 
-        self.logger.debug(f"P{self.myId} -> Message privé reçu de {event.to}: {event.message}")
-        self.incClockOnReceive(event.stamp, event.system)
+        self.logger.debug(f"P{self.myId} -> Message privé reçu de {event.to}: {event.payload}")
+        self.incClockOnReceive(event.stamp)
         self.mailbox.add(event)
 
 
@@ -232,7 +235,7 @@ class Com():
         if event.sender == self.myId:
             return
 
-        self.incClockOnReceive(event.stamp, event.system)
+        self.incClockOnReceive(event.stamp)
         self.sendAckTo(event.sender)
         self.logger.info(f"P{self.myId} -> A reçu broadcast synchrone : {event.payload}")
 
@@ -264,7 +267,11 @@ class Com():
     Entrée => le message à envoyer, le destinataire
     """    
     def sendToSync(self, message, to):
-        NotImplemented
+        self.logger.info(f"P{self.myId} -> Envoi message privé synchrone")
+        self.incClock()
+        message = PrivateMessageSync(to, self.clock, message, self.myId)
+        PyBus.Instance().post(message)
+        self.ack_pm_sync.acquire()
 
 
     """
@@ -272,9 +279,34 @@ class Com():
     Entrée => l'event contenant le message intercepté
     """
     def recevFromSync(self, message, sender):
-        NotImplemented
+        self.logger.info(f"P{self.myId} -> Attente message privé synchrone")
+        self.pm_sync.acquire()
 
+    """
+    """
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessageSync)
+    def onPrivateMessageSync(self, event):
+        if self.myId != event.to:
+            return
 
+        self.logger.debug(f"P{self.myId} ->  Message privé reçu de {event.to}: {event.payload}")
+        self.sendAckPMTo(event.sender)
+
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=PMAckMessage)
+    def onPMAck(self, event):
+        if event.dest != self.myId:
+            return
+        
+        self.logger.info(f"P{self.myId} -> A reçu ACK message privé")
+        self.ack_pm_sync.release()
+        
+    """
+    """
+    def sendAckPMTo(self, dest):
+        ack = PMAckMessage(self.myId, dest)
+        PyBus.Instance().post(ack)
+        self.pm_sync.release()
+        
 # -------- LOGGER-----------
 
 

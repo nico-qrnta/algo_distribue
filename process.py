@@ -20,11 +20,11 @@ class Process(Thread):
     
     def run(self):
         loop = 0
-        if self.getName() == "P0":
+        if self.getName() == "P1":
             sleep(2)
-            self.com.broadcastSync('coucou', 0)
-        else:
-            self.com.broadcastSync()
+            self.com.sendToSync('coucou', 0)
+        elif self.getName() == "P0":
+            self.com.recevFromSync("", 0)
 
         while self.alive:
             print(self.getName() + " Loop: " + str(loop))

@@ -4,10 +4,8 @@ class Message():
         - l'estampille
         - le contenu
         - l'émetteur
-        - un booléen indiquant la nature système du message.
     """
-    def __init__(self, stamp, payload, sender, system):
+    def __init__(self, stamp, payload, sender):
         self.stamp = stamp
         self.payload = payload
         self.sender = sender
-        self.system = system

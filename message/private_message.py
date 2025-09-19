@@ -7,11 +7,10 @@ class PrivateMessage(Message):
         - l'estampille
         - le contenu
         - l'émetteur
-        - un booléen indiquant la nature système du message.
 
     sender et msg_id sont requis uniquement pour la communication synchrone
     Ce message n'est pas système, donc impacte l'horloge Lamport
     """
     def __init__(self, to, stamp, payload, sender=None):
-        super().__init__(stamp, payload, sender, system=False)
+        super().__init__(stamp, payload, sender)
         self.to = to
