@@ -11,10 +11,10 @@ import logging
 class Com():
     # -------- Initialisation --------
 
-    """
-    Instancie les différentes variables de Com
-    """
     def __init__(self, myId, log_level=logging.INFO):
+        """
+        Instancie les différentes variables de Com
+        """
         # Horloge Lamport
         self.clock = 0
         self.clockMutex = Lock()
@@ -49,35 +49,37 @@ class Com():
     # -------- Numérotation automatique --------
 
 
-    """
-    Crée un id numéroté automatiquement pour le processus et le retourne
-    Sortie => id du processus
-    """
     def getMyId(self):
+        """
+        Crée un id numéroté automatiquement pour le processus et le retourne
+        Sortie => id du processus
+        """
         NotImplemented
 
     def getNbProcess(self):
+        """
+        """
         return 3
 
 
     # -------- Horloge Lamport --------
 
 
-    """
-    Incrémente l'horloge Lamport de façon protégée via un mutex
-    """
     def incClock(self):
+        """
+        Incrémente l'horloge Lamport de façon protégée via un mutex
+        """
         self.clockMutex.acquire()
         self.clock += 1
         self.logger.debug(f"P{self.myId} -> Horloge incrémentée: {self.clock}")
         self.clockMutex.release()
 
 
-    """
-    Met à jour l'horloge Lamport de façon protégée via un mutex en se basant sur un message donné
-    Entrée => l'estampille du message
-    """
     def incClockOnReceive(self, stamp):
+        """
+        Met à jour l'horloge Lamport de façon protégée via un mutex en se basant sur un message donné
+        Entrée => l'estampille du message
+        """
         self.clockMutex.acquire()
         self.clock = max(stamp, self.clock) + 1
         self.logger.debug(f"P{self.myId} -> Horloge mise à jour sur reception: {self.clock}")
@@ -87,20 +89,21 @@ class Com():
     # -------- Section critique --------
 
 
-    """
-    Bloque le processus jusqu'à obtention du jeton de section critique
-    """
     def requestSC(self):
+        """
+        Bloque le processus jusqu'à obtention du jeton de section critique
+        """
         self.logger.info(f"P{self.myId} -> Demande SC")
         self.status = Status.REQUEST
         self.sc_semaphore.acquire()
         self.status = Status.SECTION_CRITIQUE
         self.logger.info(f"P{self.myId} -> Entrée SC")
 
-    """
-    Libère le jeton de section critique
-    """
+
     def releaseSC(self):
+        """
+        Libère le jeton de section critique
+        """
         if self.status != Status.SECTION_CRITIQUE:
             return
 
@@ -109,10 +112,10 @@ class Com():
         self.finished_sc_semaphore.release()
 
 
-    """
-    """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=TokenSC)
     def onToken(self, event):
+        """
+        """
         self.logger.debug(f"P{self.myId} -> Token reçu pour {event.to}")
         if event.to != self.myId:
             return
@@ -126,9 +129,9 @@ class Com():
         self.sendTokenTo((self.myId + 1) % self.getNbProcess())
 
 
-    """
-    """
     def sendTokenTo(self, to):
+        """
+        """
         self.logger.debug(f"P{self.myId} -> J'envoie le token à {to}")
         token = TokenSC(to)
         time.sleep(0.5)
@@ -138,10 +141,10 @@ class Com():
     # -------- Synchronisation --------
 
 
-    """
-    Bloque le processus jusqu'à ce que tous les autres processus aient appelé cette méthode
-    """
     def synchronize(self):
+        """
+        Bloque le processus jusqu'à ce que tous les autres processus aient appelé cette méthode
+        """
         self.logger.info(f"P{self.myId} -> Attente synchronize")
         synchronizeEvent = SynchronizeEvent(self.myId)
         PyBus.Instance().post(synchronizeEvent)
@@ -150,10 +153,10 @@ class Com():
         self.logger.info(f"P{self.myId} -> Fin synchronize")
 
 
-    """
-    """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=SynchronizeEvent)
     def onSynchronizeEvent(self, event):
+        """
+        """
         self.synchronizedProcess.append(event.source)
 
         if len(self.synchronizedProcess) == self.getNbProcess():
@@ -163,22 +166,22 @@ class Com():
     # -------- Communication asynchrone --------
 
 
-    """
-    Récupère un message envoyé en broadcast de façon asynchrone
-    Entrée => l'event contenant le message intercepté
-    """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessage)
     def onBroadcast(self, event):
+        """
+        Récupère un message envoyé en broadcast de façon asynchrone
+        Entrée => l'event contenant le message intercepté
+        """
         self.incClockOnReceive(event.stamp)
         self.mailbox.add(event)
 
 
-    """
-    Récupère un message privé envoyé de façon asynchrone
-    Entrée => l'event contenant le message intercepté
-    """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessage)
     def onPrivateMessage(self, event):
+        """
+        Récupère un message privé envoyé de façon asynchrone
+        Entrée => l'event contenant le message intercepté
+        """
         if event.to != self.myId:
            return
 
@@ -187,22 +190,22 @@ class Com():
         self.mailbox.add(event)
 
 
-    """
-    Envoie un message en broadcast de façon asynchrone
-    Entrée => le message à envoyer
-    """
     def broadcast(self, message):
+        """
+        Envoie un message en broadcast de façon asynchrone
+        Entrée => le message à envoyer
+        """
         self.incClock()
         message = BroadcastMessage(self.clock, message)
         self.logger.debug(f"P{self.myId} -> Envoi broadcast: {message}")
         PyBus.Instance().post(message)
 
 
-    """
-    Envoie un message privé à un destinataire de façon asynchrone
-    Entrée => le destinataire, le message à envoyer
-    """
     def sendTo(self, message, to):
+        """
+        Envoie un message privé à un destinataire de façon asynchrone
+        Entrée => le destinataire, le message à envoyer
+        """
         self.incClock()
         message = PrivateMessage(to, self.clock, message)
         self.logger.debug(f"P{self.myId} -> Envoi privé à {to}: {message}")
@@ -212,11 +215,11 @@ class Com():
     # -------- Communication synchrone --------
 
 
-    """
-    Si le processus est l'émetteur, envoie un message en broadcast de façon asynchrone, sinon reçoit le message
-    Entrée => le message à envoyer ou recevoir, l'expéditeur
-    """
     def broadcastSync(self, message = None, sender = None):
+        """
+        Si le processus est l'émetteur, envoie un message en broadcast de façon asynchrone, sinon reçoit le message
+        Entrée => le message à envoyer ou recevoir, l'expéditeur
+        """
         if self.myId == sender:
             self.incClock()
             message = BroadcastMessageSync(self.clock, message, sender)
@@ -228,10 +231,10 @@ class Com():
             self.broadcast_sync.acquire()
 
 
-    """
-    """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessageSync)
     def onBroadcastSync(self, event):
+        """
+        """
         if event.sender == self.myId:
             return
 
@@ -240,18 +243,18 @@ class Com():
         self.logger.info(f"P{self.myId} -> A reçu broadcast synchrone : {event.payload}")
 
 
-    """
-    """
     def sendAckTo(self, dest):
+        """
+        """
         ack = AckMessage(self.myId, dest)
         PyBus.Instance().post(ack)
         self.broadcast_sync.release()
         
     
-    """
-    """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=AckMessage)
     def onAck(self, event):
+        """
+        """
         if event.dest != self.myId:
             return
         
@@ -262,11 +265,11 @@ class Com():
             self.ack_broadcast_sync.release()
 
 
-    """
-    Envoie un message privé à un destinataire de façon synchrone et bloque jusqu'à la réception du message
-    Entrée => le message à envoyer, le destinataire
-    """    
     def sendToSync(self, message, to):
+        """
+        Envoie un message privé à un destinataire de façon synchrone et bloque jusqu'à la réception du message
+        Entrée => le message à envoyer, le destinataire
+        """    
         self.logger.info(f"P{self.myId} -> Envoi message privé synchrone")
         self.incClock()
         message = PrivateMessageSync(to, self.clock, message, self.myId)
@@ -274,18 +277,19 @@ class Com():
         self.ack_pm_sync.acquire()
 
 
-    """
-    Récupère un message privé envoyé de façon synchrone et bloque jusqu'à l'envoi du message
-    Entrée => l'event contenant le message intercepté
-    """
     def recevFromSync(self, message, sender):
+        """
+        Récupère un message privé envoyé de façon synchrone et bloque jusqu'à l'envoi du message
+        Entrée => l'event contenant le message intercepté
+        """
         self.logger.info(f"P{self.myId} -> Attente message privé synchrone")
         self.pm_sync.acquire()
 
-    """
-    """
+
     @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessageSync)
     def onPrivateMessageSync(self, event):
+        """
+        """
         if self.myId != event.to:
             return
 
@@ -300,9 +304,10 @@ class Com():
         self.logger.info(f"P{self.myId} -> A reçu ACK message privé")
         self.ack_pm_sync.release()
         
-    """
-    """
+
     def sendAckPMTo(self, dest):
+        """
+        """
         ack = PMAckMessage(self.myId, dest)
         PyBus.Instance().post(ack)
         self.pm_sync.release()
