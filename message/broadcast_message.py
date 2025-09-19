@@ -8,7 +8,6 @@ class BroadcastMessage(Message):
             - le contenu
             - l'émetteur
 
-        sender et msg_id sont requis uniquement pour la communication synchrone
-        Ce message n'est pas système, donc impacte l'horloge Lamport
+        sender est requis uniquement pour la communication synchrone
         """
         super().__init__(stamp, payload, sender)

@@ -11,4 +11,7 @@ class Message():
         self.sender = sender
 
     def getSender(self):
+        """
+        Retourne l'émetteur du message.
+        """
         return self.sender

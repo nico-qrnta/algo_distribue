@@ -51,11 +51,17 @@ class Com():
         self.myUniqueId = None
 
 
+    # -------- Numérotation automatique --------
+
+
     def init(self):
+        """
+        Initialise la numérotation automatique
+        """
         time.sleep(4)
         self.initializeId()
 
-    # -------- Numérotation automatique --------
+
     def getMyId(self):
         """
         Crée un id numéroté automatiquement pour le processus et le retourne
@@ -63,7 +69,11 @@ class Com():
         """
         return self.myId
 
+
     def initializeId(self):
+        """
+        Initialise l'ID unique du processus et le diffuse en broadcast
+        """
         self.myUniqueId = random.randint(0, 10**18)
         self.ids.append(self.myUniqueId)
         
@@ -77,6 +87,8 @@ class Com():
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastId)
     def onBroadcastId(self, event):
         """
+        Gère la réception d'un ID de broadcast
+        Entrée => l'event contenant l'ID intercepté
         """
         if self.myUniqueId == event.id:
             return
@@ -96,6 +108,8 @@ class Com():
     @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessageId)
     def OnPrivateMessageId(self, event):
         """
+        Gère la réception d'un ID privé
+        Entrée => l'event contenant l'ID intercepté
         """
         if self.myUniqueId != event.dest:
             return
@@ -107,12 +121,17 @@ class Com():
         if self.myId != None :
             self.myId = self.ids.index(self.myUniqueId)
 
+
     def getNbProcess(self):
         """
+        Retourne le nombre de processus
+        Sortie => le nombre de processus
         """
         return len(self.ids)
     
+
     # -------- Horloge Lamport --------
+
 
     def incClock(self):
         """
@@ -164,6 +183,8 @@ class Com():
     @subscribe(threadMode = Mode.PARALLEL, onEvent=TokenSC)
     def onToken(self, event):
         """
+        Gère la réception d'un jeton de section critique
+        Entrée => l'event contenant le jeton intercepté
         """
         self.logger.debug(f"P{self.myId} -> Token reçu pour {event.to}")
         if event.to != self.myId:
@@ -180,6 +201,8 @@ class Com():
 
     def sendTokenTo(self, to):
         """
+        Envoie le jeton de section critique au processus spécifié
+        Entrée => le destinataire
         """
         self.logger.debug(f"P{self.myId} -> J'envoie le token à {to}")
         token = TokenSC(to)
@@ -205,6 +228,8 @@ class Com():
     @subscribe(threadMode = Mode.PARALLEL, onEvent=SynchronizeEvent)
     def onSynchronizeEvent(self, event):
         """
+        Gère la réception d'un événement de synchronisation
+        Entrée => l'event contenant l'événement de synchronisation intercepté
         """
         self.synchronizedProcess.append(event.source)
 
@@ -284,6 +309,8 @@ class Com():
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessageSync)
     def onBroadcastSync(self, event):
         """
+        Récupère un message envoyé en broadcast de façon synchrone
+        Entrée => l'event contenant le message intercepté
         """
         if event.sender == self.myId:
             return
@@ -295,6 +322,8 @@ class Com():
 
     def sendAckTo(self, dest):
         """
+        Envoie un accusé de réception pour un broadcast synchrone au processus spécifié
+        Entrée => le destinataire
         """
         ack = AckMessage(self.myId, dest)
         PyBus.Instance().post(ack)
@@ -304,6 +333,8 @@ class Com():
     @subscribe(threadMode = Mode.PARALLEL, onEvent=AckMessage)
     def onAck(self, event):
         """
+        Gère la réception d'un accusé de réception pour un broadcast synchrone
+        Entrée => l'event contenant l'accusé de réception intercepté
         """
         if event.dest != self.myId:
             return
@@ -340,6 +371,8 @@ class Com():
     @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessageSync)
     def onPrivateMessageSync(self, event):
         """
+        Récupère un message privé envoyé de façon synchrone
+        Entrée => l'event contenant le message intercepté
         """
         if self.myId != event.to:
             return
@@ -347,8 +380,13 @@ class Com():
         self.logger.debug(f"P{self.myId} ->  Message privé reçu de {event.to}: {event.payload}")
         self.sendAckPMTo(event.sender)
 
+
     @subscribe(threadMode = Mode.PARALLEL, onEvent=PMAckMessage)
     def onPMAck(self, event):
+        """
+        Gère la réception d'un accusé de réception pour un message privé synchrone
+        Entrée => l'event contenant l'accusé de réception intercepté
+        """
         if event.dest != self.myId:
             return
         
@@ -358,11 +396,14 @@ class Com():
 
     def sendAckPMTo(self, dest):
         """
+        Envoie un accusé de réception pour un message privé synchrone au processus spécifié
+        Entrée => le destinataire
         """
         ack = PMAckMessage(self.myId, dest)
         PyBus.Instance().post(ack)
         self.pm_sync.release()
         
+
 # -------- LOGGER-----------
 
 
