@@ -2,7 +2,11 @@ from threading import Lock
 from pyeventbus3.pyeventbus3 import *
 
 from mailbox_queue import Mailbox
-from message import BroadcastMessage, PrivateMessage
+from message import BroadcastMessage, PrivateMessage, TokenSC
+from status import Status
+
+import threading
+import logging
 
 class Com():
     # -------- Initialisation --------
@@ -10,13 +14,22 @@ class Com():
     """
     Instancie les différentes variables de Com
     """
-    def __init__(self):
+    def __init__(self, myId, log_level=logging.INFO):
         # Horloge Lamport
         self.clock = 0
         self.clockMutex = Lock()
 
         # B.a.L
         self.mailbox = Mailbox()
+        
+        # Section critique
+        self.status = Status.NULL
+        self.sc_semaphore = threading.Semaphore(0)
+        self.myId = myId
+
+
+        self.logger = setup_logger(log_level)
+        PyBus.Instance().register(self, self)
 
 
     # -------- Numérotation automatique --------
@@ -39,6 +52,7 @@ class Com():
     def incClock(self):
         self.clockMutex.acquire()
         self.clock += 1
+        self.logger.debug(f"P{self.myId} -> Horloge incrémentée: {self.clock}")
         self.clockMutex.release()
 
 
@@ -50,6 +64,7 @@ class Com():
         if not system:
             self.clockMutex.acquire()
             self.clock = max(stamp, self.clock) + 1
+            self.logger.debug(f"P{self.myId} -> Horloge mise à jour sur reception: {self.clock}")
             self.clockMutex.release()
 
         
@@ -59,15 +74,23 @@ class Com():
     """
     Bloque le processus jusqu'à obtention du jeton de section critique
     """
-    def requestSC():
-        NotImplemented
-
+    def requestSC(self):
+        self.logger.info(f"P{self.myId} -> Demande SC")
+        self.status = Status.REQUEST
+        self.sc_semaphore.acquire()
+        self.status = Status.SECTION_CRITIQUE
+        self.logger.info(f"P{self.myId} -> Entrée SC")
 
     """
     Libère le jeton de section critique
     """
-    def releaseSC():
-        NotImplemented
+    def releaseSC(self):
+        if self.status != Status.SECTION_CRITIQUE:
+            return
+
+        self.logger.info(f"P{self.myId} -> Sortie SC, passe le jeton")
+        self.sendTokenTo((self.myId + 1) % 3);
+        self.status = Status.NULL
 
 
     # -------- Synchronisation --------
@@ -81,6 +104,18 @@ class Com():
 
 
     # -------- Communication asynchrone --------
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=TokenSC)
+    def onToken(self, event):
+        self.logger.debug(f"P{self.myId} -> Token reçu pour {event.to}")
+        if event.to != self.myId:
+            return
+
+        if self.status == Status.REQUEST:
+            self.logger.info(f"P{self.myId} -> Je garde le token pour entrer en SC")
+            self.sc_semaphore.release()
+        else:
+            self.logger.debug(f"P{self.myId} -> Pas besoin du token, je le passe")
+            self.sendTokenTo((self.myId + 1) % 3)
 
 
     """
@@ -99,6 +134,7 @@ class Com():
     """
     @subscribe(threadMode = Mode.PARALLEL, onEvent=PrivateMessage)
     def onPrivateMessage(self, event):
+        self.logger.debug(f"P{self.myId} -> Message privé reçu de {event.to}: {event.message}")
         self.incClockOnReceive(event.stamp, event.system)
         self.mailbox.add(event)
 
@@ -110,6 +146,7 @@ class Com():
     def broadcast(self, message):
         self.incClock()
         message = BroadcastMessage(self.clock, message)
+        self.logger.debug(f"P{self.myId} -> Envoi broadcast: {message}")
         PyBus.Instance().post(message)
 
 
@@ -120,7 +157,15 @@ class Com():
     def sendTo(self, message, to):
         self.incClock()
         message = PrivateMessage(to, self.clock, message)
+        self.logger.debug(f"P{self.myId} -> Envoi privé à {to}: {message}")
         PyBus.Instance().post(message)
+
+
+    def sendTokenTo(self, to):
+        self.logger.debug(f"P{self.myId} -> J'envoie le token à {to}")
+        token = TokenSC(to)
+        time.sleep(0.5)
+        PyBus.Instance().post(token)
 
 
     # -------- Communication synchrone --------
@@ -148,3 +193,28 @@ class Com():
     """
     def recevFromSync(self, message, sender):
         NotImplemented
+
+
+
+
+
+
+
+
+
+# --- LOGGER ---
+
+def setup_logger(level=logging.INFO):
+    logger = logging.getLogger("ComLogger")
+    logger.setLevel(level)
+
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+
+    formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
+    ch.setFormatter(formatter)
+
+    if not logger.handlers:  # éviter duplication
+        logger.addHandler(ch)
+
+    return logger
