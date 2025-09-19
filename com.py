@@ -2,7 +2,7 @@ from threading import Lock
 from pyeventbus3.pyeventbus3 import *
 
 from mailbox_queue import Mailbox
-from message import BroadcastMessage, PrivateMessage, TokenSC, SynchronizeEvent
+from message import AckMessage, BroadcastMessage, PrivateMessage, TokenSC, SynchronizeEvent, BroadcastMessageSync
 from status import Status
 
 import threading
@@ -30,6 +30,11 @@ class Com():
         #synchronize
         self.synchronizedProcess = []
         self.synchro_semaphore = threading.Semaphore(0)
+
+        #broadcast synchrone
+        self.broadcast_sync = threading.Semaphore(0)
+        self.acked_broadcast_sync = []
+        self.ack_broadcast_sync = threading.Semaphore(0)
 
         self.myId = myId
 
@@ -186,15 +191,47 @@ class Com():
         PyBus.Instance().post(message)
 
     # -------- Communication synchrone --------
-
     """
     Si le processus est l'émetteur, envoie un message en broadcast de façon asynchrone, sinon reçoit le message
     Entrée => le message à envoyer ou recevoir, l'expéditeur
     """
-    def broadcastSync(self, message, sender):
-        NotImplemented
+    def broadcastSync(self, message = None, sender = None):
+        if self.myId == sender:
+            self.incClock()
+            message = BroadcastMessageSync(self.clock, message, sender)
+            PyBus.Instance().post(message)
+            self.logger.info(f"P{self.myId} -> Envoi broadcast synchrone")
+            self.ack_broadcast_sync.acquire()
+        else:
+            self.logger.info(f"P{self.myId} -> Attente broadcast synchrone")
+            self.broadcast_sync.acquire()
 
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessageSync)
+    def onBroadcastSync(self, event):
+        if event.sender == self.myId:
+            return
+
+        self.incClockOnReceive(event.stamp, event.system)
+        self.sendAckTo(event.sender)
+        self.logger.info(f"P{self.myId} -> A reçu broadcast synchrone : {event.payload}")
+
+    def sendAckTo(self, dest):
+        ack = AckMessage(self.myId, dest)
+        PyBus.Instance().post(ack)
+        self.broadcast_sync.release()
+        
     
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=AckMessage)
+    def onAck(self, event):
+        if event.dest != self.myId:
+            return
+        
+        self.logger.debug(f"P{self.myId} -> A reçu ACK : {event.payload}")
+        self.acked_broadcast_sync.append(event.sender)
+
+        if len(self.acked_broadcast_sync) == self.getNbProcess() - 1:
+            self.ack_broadcast_sync.release()
+
     """
     Envoie un message privé à un destinataire de façon synchrone et bloque jusqu'à la réception du message
     Entrée => le message à envoyer, le destinataire

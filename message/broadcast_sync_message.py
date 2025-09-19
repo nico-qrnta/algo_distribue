@@ -1,6 +1,6 @@
 from .message import Message
 
-class BroadcastMessage(Message):
+class BroadcastMessageSync(Message):
     """
     Initialise un message brodacast avec :
         - l'estampille

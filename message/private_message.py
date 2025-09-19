@@ -13,6 +13,6 @@ class PrivateMessage(Message):
     sender et msg_id sont requis uniquement pour la communication synchrone
     Ce message n'est pas système, donc impacte l'horloge Lamport
     """
-    def __init__(self, to, stamp, payload, sender=None, msg_id=None):
-        super().__init__(stamp, payload, sender, msg_id, system=False)
+    def __init__(self, to, stamp, payload, sender=None):
+        super().__init__(stamp, payload, sender, system=False)
         self.to = to

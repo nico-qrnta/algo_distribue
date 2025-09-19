@@ -20,16 +20,11 @@ class Process(Thread):
     
     def run(self):
         loop = 0
-        if self.getName() == "P1":
-            self.com.sendTokenTo(0)
-
         if self.getName() == "P0":
-            self.com.requestSC()
-            sleep(5)
-            self.com.releaseSC()
-            self.com.requestSC()
-            sleep(5)
-            self.com.releaseSC()
+            sleep(2)
+            self.com.broadcastSync('coucou', 0)
+        else:
+            self.com.broadcastSync()
 
         while self.alive:
             print(self.getName() + " Loop: " + str(loop))
